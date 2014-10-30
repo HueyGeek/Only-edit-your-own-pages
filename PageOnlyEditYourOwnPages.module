@@ -67,7 +67,6 @@ class PageOnlyEditYourOwnPages extends WireData implements Module, ConfigurableM
 
         $inputfields = new InputfieldWrapper();
 
-
         $f = $modules->get("InputfieldSelect");
         $f->required = true;
         $f->attr('name', 'supervisedRole');
