@@ -1,0 +1,91 @@
+<?php
+
+/*
+ * Only edit your own pages
+ * 
+ * Prevent a user edit a page created by another user.
+ *
+ * This module is fully functional as-is, but intended as a proof-of-concept for those wanting
+ * to go further with adding custom edit and/or view access.
+ *
+ * Copyright 2014 by Hugo Morales 
+ * http://logiqos.com
+ *
+ * Based on code from Christina Holly (TinaciousDesign.com) and Ryan Cramer 
+ * as appear on: https://processwire.com/talk/topic/3271-can-i-limit-page-editing-to-the-user-that-created-that-page
+ *
+ */
+ 
+class PageOnlyEditYourOwnPages extends WireData implements Module, ConfigurableModule {
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Only edit your own pages', 
+			'version' => 10, 
+			'summary' => 'Prevent a user edit a page created by another one.',
+			'author' => 'Hugo Morales, LOGIQOS',
+			'singular' => true, 
+			'autoload' => true, 
+			);
+	}
+
+    protected static $configDefaults = array(
+        "supervisedRole" => ""
+    );
+    
+	public function init() {
+	    if($this->supervisedRole!="" && $this->user->hasRole(wire('roles')->get($this->supervisedRole))) {
+	    	$this->addHookAfter("Page::editable", $this, 'editable');
+	    }
+	}
+
+	public function editable(HookEvent $event) {
+	
+	    // abort if no access
+	    if(!$event->return) return; 
+	    
+	    $page = $event->object;
+	    
+	    // don´t check pages with this special id
+	    if($page->id == -1) return;
+	    
+	    // criteria required in order to edit
+	    if($this->user->id !== $page->createdUser->id) $event->return = false; 
+	    
+	}
+
+    /*
+     *  Build a form allowing configuration of this Module
+     */
+     
+    public static function getModuleConfigInputfields(array $data) {
+
+        $modules = wire('modules');
+
+        foreach(self::$configDefaults as $key => $value) {
+            if(!isset($data[$key]) || $data[$key]=='') $data[$key] = $value;
+        }
+
+        $inputfields = new InputfieldWrapper();
+
+
+        $f = $modules->get("InputfieldSelect");
+        $f->required = true;
+        $f->attr('name', 'supervisedRole');
+        $f->attr('value', $data["supervisedRole"]);
+        $f->label = __('Supervised 	Role');
+        $f->description = __('Role of users who want to restrict access to only edit the pages created by them.');
+        $f->addOption('');
+        // populate with all available fields
+        foreach(wire('roles') as $role) {
+            // filter out some roles
+            if($role->name != "guest" && $role->name != "superuser") $f->addOption($role->id, $role->name);
+        }
+        if(isset($data['supervisedRole'])) $f->value = $data['supervisedRole'];
+        $f->notes = __("The roles of guest and superuser are not available to be selected, you must create a role for the group of users who have rights to create and edit pages.");
+        $inputfields->add($f);
+
+        return $inputfields;
+
+    }
+
+}
